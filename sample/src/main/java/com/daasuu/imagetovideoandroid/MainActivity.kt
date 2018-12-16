@@ -13,10 +13,7 @@ import android.provider.MediaStore
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.util.Size
-import android.widget.Button
-import android.widget.ListView
-import android.widget.ProgressBar
-import android.widget.Toast
+import android.widget.*
 import com.daasuu.imagetovideo.EncodeListener
 import com.daasuu.imagetovideo.ImageToVideoConverter
 import java.io.File
@@ -44,6 +41,7 @@ class MainActivity : AppCompatActivity() {
         progressBar.max = 100
         findViewById<Button>(R.id.button2).setOnClickListener {
             arrayList.clear()
+            updateText()
         }
         findViewById<Button>(R.id.button).setOnClickListener { view ->
             view.isEnabled = false
@@ -102,6 +100,11 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun updateText(){
+        val textView=findViewById<TextView>(R.id.textView)
+        textView.text = "Total: " +arrayList.size.toString()
+    }
+
     override fun onResume() {
         super.onResume()
         if (checkPermission()) {
@@ -112,9 +115,10 @@ class MainActivity : AppCompatActivity() {
                     val adapter = ImageListAdapter(applicationContext, R.layout.row_image_list, imagePaths)
                     lv.adapter = adapter
 
-                    lv.setOnItemClickListener { parent, view, position, id ->
+                    lv.setOnItemClickListener { _, _, position, _ ->
                         arrayList.add(imagePaths[position])
                         findViewById<Button>(R.id.button).isEnabled = true
+                        updateText()
                     }
                 }
 
@@ -144,7 +148,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         when (requestCode) {
-            PERMISSION_REQUEST_CODE -> if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            PERMISSION_REQUEST_CODE -> if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this@MainActivity, "permission has been grunted.", Toast.LENGTH_SHORT)
                         .show()
             } else {
@@ -160,7 +164,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getVideoFilePath(): String {
-        return getAndroidMoviesFolder().absolutePath + "/" + SimpleDateFormat("yyyyMM_dd-HHmmss").format(Date()) + "image_video.mp4"
+        return getAndroidMoviesFolder().absolutePath + "/" + SimpleDateFormat("yyyyMM_dd-HHmmss", Locale.ENGLISH).format(Date()) + "image_video.mp4"
     }
 
     private fun exportMp4ToGallery(context: Context, filePath: String) {

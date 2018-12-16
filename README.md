@@ -7,6 +7,11 @@ Easy Image to Video Converter
 
 <img src="art/output.gif" width="25%">
 
+
+### Changes:
+- Added multiple images to convert into Video
+- Default time 2 sec for each image
+ 
 ## Gradle
 Step 1. Add the JitPack repository to your build file
 ```groovy
