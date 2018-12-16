@@ -6,7 +6,7 @@ interface EncodeListener {
    *
    * @param progress Progress in [0.0, 1.0] range, or negative value if progress is unknown.
    */
-  fun onProgress(progress: Float)
+  fun onProgress(progress: Float, rawprogress: Int)
 
   /**
    * Called when transcode completed.

@@ -26,144 +26,155 @@ import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
-  companion object {
-    private const val PERMISSION_REQUEST_CODE = 88888
-  }
+    companion object {
+        private const val PERMISSION_REQUEST_CODE = 88888
+    }
 
-  private var imageLoader: ImageLoader? = null
-  private var imagePath: String? = null
-  private var videoPath: String? = null
-  private var imageToVideo: ImageToVideoConverter? = null
+    private var imageLoader: ImageLoader? = null
+    private var videoPath: String? = null
+    private var imageToVideo: ImageToVideoConverter? = null
+    private val arrayList = ArrayList<String>()
+    private var index = 0
+    private var lastIndex = 0
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    setContentView(R.layout.activity_image_to_video)
-    val progressBar = findViewById<ProgressBar>(R.id.progress_bar)
-    progressBar.max = 100
-
-    findViewById<Button>(R.id.button).setOnClickListener { view ->
-      imagePath?.let {
-        view.isEnabled = false
-        videoPath = getVideoFilePath()
-        videoPath?.let { outputPath ->
-          imageToVideo = ImageToVideoConverter(
-              outputPath = outputPath,
-              inputImagePath = it,
-              size = Size(720, 720),
-              duration = TimeUnit.SECONDS.toMicros(4),
-              listener = object : EncodeListener {
-                override fun onProgress(progress: Float) {
-                  Log.d("progress", "progress = $progress")
-                  runOnUiThread {
-                    progressBar.progress = (progress * 100).toInt()
-                  }
-                }
-
-                override fun onCompleted() {
-                  runOnUiThread {
-                    view.isEnabled = true
-                    progressBar.progress = 100
-                    findViewById<Button>(R.id.play).isEnabled = true
-                  }
-                  exportMp4ToGallery(applicationContext, outputPath)
-                }
-
-                override fun onFailed(exception: Exception) {
-
-                }
-              }
-
-            )
-          imageToVideo?.start()
-          findViewById<Button>(R.id.play).isEnabled = false
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_image_to_video)
+        val progressBar = findViewById<ProgressBar>(R.id.progress_bar)
+        progressBar.max = 100
+        findViewById<Button>(R.id.button2).setOnClickListener {
+            arrayList.clear()
         }
-      }
-    }
+        findViewById<Button>(R.id.button).setOnClickListener { view ->
+            view.isEnabled = false
+            videoPath = getVideoFilePath()
+            videoPath?.let { outputPath ->
+                imageToVideo = ImageToVideoConverter(
+                        outputPath = outputPath,
+                        inputImagePath = arrayList[0],
+                        size = Size(720, 720),
+                        duration = TimeUnit.SECONDS.toMicros(arrayList.size.toLong() * 2),
+                        listener = object : EncodeListener {
+                            override fun onProgress(progress: Float, rawprogress: Int) {
+                                Log.d("progress", "progress = $progress")
+                                val sec2 = rawprogress
+                                if (sec2 > 0 && (sec2 % 2) == 0 && (sec2 / 2) < arrayList.size) {
+                                    index = sec2 / 2
+                                    if (lastIndex != index) {
+                                        Log.d("progress", "changebitmap $rawprogress $sec2 $index")
+                                        imageToVideo?.changeBitmap(arrayList[index])
+                                        lastIndex = index
+                                    }
+                                }
+                                runOnUiThread {
+                                    progressBar.progress = (progress * 100).toInt()
+                                }
+                            }
 
-    findViewById<Button>(R.id.play).setOnClickListener {
-      videoPath?.let { path ->
-        val uri = Uri.parse(path)
-        val intent = Intent(Intent.ACTION_VIEW, uri)
-        intent.setDataAndType(uri, "video/mp4")
-        startActivity(intent)
-      }
-    }
+                            override fun onCompleted() {
+                                runOnUiThread {
+                                    view.isEnabled = true
+                                    progressBar.progress = 100
+                                    findViewById<Button>(R.id.play).isEnabled = true
+                                }
+                                exportMp4ToGallery(applicationContext, outputPath)
+                            }
 
-  }
+                            override fun onFailed(exception: Exception) {
 
-  override fun onResume() {
-    super.onResume()
-    if (checkPermission()) {
-      imageLoader = ImageLoader(applicationContext)
-      imageLoader?.loadDeviceVideos(object : ImageLoadListener {
-        override fun onVideoLoaded(imagePaths: List<String>) {
-          val lv = findViewById<ListView>(R.id.image_list)
-          val adapter = ImageListAdapter(applicationContext, R.layout.row_image_list, imagePaths)
-          lv.adapter = adapter
+                            }
+                        }
 
-          lv.setOnItemClickListener { parent, view, position, id ->
-            imagePath = imagePaths[position]
-            findViewById<Button>(R.id.button).isEnabled = true
-          }
+                )
+                imageToVideo?.start()
+                findViewById<Button>(R.id.play).isEnabled = false
+            }
         }
 
-        override fun onFailed(e: Exception) {
-
+        findViewById<Button>(R.id.play).setOnClickListener {
+            videoPath?.let { path ->
+                val uri = Uri.parse(path)
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                intent.setDataAndType(uri, "video/mp4")
+                startActivity(intent)
+            }
         }
-      })
+
     }
-  }
 
-  override fun onPause() {
-    super.onPause()
-    imageLoader?.abortLoadVideos()
-    imageLoader = null
-  }
+    override fun onResume() {
+        super.onResume()
+        if (checkPermission()) {
+            imageLoader = ImageLoader(applicationContext)
+            imageLoader?.loadDeviceVideos(object : ImageLoadListener {
+                override fun onVideoLoaded(imagePaths: List<String>) {
+                    val lv = findViewById<ListView>(R.id.image_list)
+                    val adapter = ImageListAdapter(applicationContext, R.layout.row_image_list, imagePaths)
+                    lv.adapter = adapter
 
+                    lv.setOnItemClickListener { parent, view, position, id ->
+                        arrayList.add(imagePaths[position])
+                        findViewById<Button>(R.id.button).isEnabled = true
+                    }
+                }
 
-  @SuppressLint("NewApi")
-  private fun checkPermission(): Boolean {
-    // request permission if it has not been grunted.
-    if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-      requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
-      return false
+                override fun onFailed(e: Exception) {
+
+                }
+            })
+        }
     }
-    return true
-  }
 
-  override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-    when (requestCode) {
-      PERMISSION_REQUEST_CODE -> if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        Toast.makeText(this@MainActivity, "permission has been grunted.", Toast.LENGTH_SHORT)
-          .show()
-      } else {
-        Toast.makeText(this@MainActivity, "[WARN] permission is not grunted.", Toast.LENGTH_SHORT)
-          .show()
-      }
+    override fun onPause() {
+        super.onPause()
+        imageLoader?.abortLoadVideos()
+        imageLoader = null
     }
-  }
 
 
-  private fun getAndroidMoviesFolder(): File {
-    return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
-  }
+    @SuppressLint("NewApi")
+    private fun checkPermission(): Boolean {
+        // request permission if it has not been grunted.
+        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
+            return false
+        }
+        return true
+    }
 
-  private fun getVideoFilePath(): String {
-    return getAndroidMoviesFolder().absolutePath + "/" + SimpleDateFormat("yyyyMM_dd-HHmmss").format(Date()) + "image_video.mp4"
-  }
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        when (requestCode) {
+            PERMISSION_REQUEST_CODE -> if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this@MainActivity, "permission has been grunted.", Toast.LENGTH_SHORT)
+                        .show()
+            } else {
+                Toast.makeText(this@MainActivity, "[WARN] permission is not grunted.", Toast.LENGTH_SHORT)
+                        .show()
+            }
+        }
+    }
 
-  private fun exportMp4ToGallery(context: Context, filePath: String) {
-    val values = ContentValues(2)
-    values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-    values.put(MediaStore.Video.Media.DATA, filePath)
-    // MediaStoreに登録
-    context.contentResolver.insert(
-      MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values
-    )
-    context.sendBroadcast(
-      Intent(
-        Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse("file://$filePath")
-      )
-    )
-  }
+
+    private fun getAndroidMoviesFolder(): File {
+        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+    }
+
+    private fun getVideoFilePath(): String {
+        return getAndroidMoviesFolder().absolutePath + "/" + SimpleDateFormat("yyyyMM_dd-HHmmss").format(Date()) + "image_video.mp4"
+    }
+
+    private fun exportMp4ToGallery(context: Context, filePath: String) {
+        val values = ContentValues(2)
+        values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+        values.put(MediaStore.Video.Media.DATA, filePath)
+        // MediaStoreに登録
+        context.contentResolver.insert(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values
+        )
+        context.sendBroadcast(
+                Intent(
+                        Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.parse("file://$filePath")
+                )
+        )
+    }
 }
